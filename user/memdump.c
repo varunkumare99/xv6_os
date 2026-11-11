@@ -3,6 +3,7 @@
 #include "kernel/fcntl.h"
 
 void memdump(char *fmt, char *data);
+void print_uint64(uint64 value);
 
 int
 main(int argc, char *argv[])
@@ -58,8 +59,61 @@ main(int argc, char *argv[])
 }
 
 void
+print_uint64(uint64 value) {
+  unsigned int top_half = (unsigned int)(value >> 32);
+  unsigned int bottom_half = (unsigned int)value;
+  printf("%x", bottom_half);
+  printf("%x\n", top_half);
+}
+
+int
+pow (int base, int exp) {
+  int result = 1;
+  for (int i = 0; i < exp; ++i) {
+    result = result * base;
+  }
+  return result;
+}
+
+void
 memdump(char *fmt, char *data)
 {
-  // Your code here.
+  int curr = 0;
 
+  for (int j = 0; j < strlen(fmt); j++) {
+    switch (fmt[j]) {
+      case 'i':
+        printf("%d\n", *(int*)(data + curr));
+        curr+=4;
+      break;
+
+      case 'p':
+        print_uint64((uint64)*(char**)data);
+        curr += 8;
+      break;
+
+      case 'h':
+        printf("%d\n", *(short*)(data + curr));
+        curr+=2;
+      break;
+
+      case 'c':
+        printf("%c\n", data[curr]);
+        curr++;
+      break;
+
+      case 's':
+        printf("%s\n", *(char **)data);
+        curr += 8;
+      break;
+
+      case 'S':
+        while(data[curr]) {
+          printf("%c", data[curr]);
+          curr++;
+        }
+        printf("\n");
+      break;
+    }
+  }
 }
