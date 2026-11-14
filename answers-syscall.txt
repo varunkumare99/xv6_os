@@ -1,0 +1,41 @@
+1) Looking at the backtrace output, which function called syscall?
+usertap() (kernel/trap.c)-> syscall
+
+2) What is the value of p->trapframe->a7 and what does that value represent?
+15, syscall open.
+
+3) What was the previous mode that the CPU was in?
+kernel/entry.S - Machine Mode
+kernel/start.c - Machine Mode
+kernel/syscall.c - Supervisor Mode
+
+4) Write down the assembly instruction the kernel is panicing at. Which register corresponds to the variable num?
+scause=0xd sepc=0x80001ca8 stval=0x0
+register a3 corresponds to num
+0x80001ca8 lw a3, 0
+
+5) Why does the kernel crash? Hint: look at figure 3-3 in the text; is address 0 mapped in the kernel address space? Is that confirmed by the value in scause above?
+Kernle crashes since you are trying to read from address 0. address 0 is mapped to I/O devices, which are not allowed.
+
+main (kernel/main.c) - no bt
+
+//this prints scause, sepc, stval
+kerneltrap(kernel/trap.c) <--- kernelvec(kernel/kernelvec.S)
+
+//panic printted by
+
+panic(kernel/printf.c) <--- kerneltrap(kernel/trap.c) <--- kernelvec(kernel/kernelvec.S)
+
+we get panic: kernel trap, since interuppt came from an unknown source, dev_intr 0.
+
+main -> kernelvec -> kerneltrap -> panic
+
+mmu checks if address 0 can be accessed by the process. Since it is not allowed. It raises a trap. which calls kernelvec -> kerneltrap -> panic.
+
+scause=0xd sepc=0x80001ca8 stval=0x0
+scause: what caused the trap: 0xd (13) means page fault
+sepc: instruction address in code which caused the crash: 0x80001ca8
+stval: exact bad address my code tried to touch, eg: 0x0
+
+6) What is the name of the process that was running when the kernel paniced? What is its process id (pid)?
+process name = init. pid = 1;
