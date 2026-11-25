@@ -104,4 +104,16 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16];               // Process name (debugging)
+  uint64 alarmInterval;        //alarm interval for sigalarm
+  void (*handler)(void);       //function ptr to handler
+  uint64 ticksNext;            //ticks when handler should be invoked next
+  //The below registers need to be saved, so that we can resume execution
+  //from the right location once handler completes
+  uint64 epc;                  // saved user program counter
+  uint64 sp;                   // save the stack pointer
+  uint64 ra;                   // save the return address
+  uint64 a0;                   // save the first argument
+  uint64 a1;                   // save the second argument
+  uint64 s11;                  // callee saved register
+  uint64 s0;                   // save the frame pointer
 };

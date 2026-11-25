@@ -71,6 +71,7 @@ sys_pause(void)
   argint(0, &n);
   if(n < 0)
     n = 0;
+  backtrace();
   acquire(&tickslock);
   ticks0 = ticks;
   while(ticks - ticks0 < n){
@@ -104,4 +105,31 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_sigalarm(void)
+{
+  int alarmInterval;
+  void (*handler)(void);
+  argint(0, &alarmInterval);
+  argaddr(1, (uint64 *)&handler);
+
+  myproc()->handler = handler;
+  myproc()->alarmInterval = alarmInterval;
+  myproc()->ticksNext = ticks + alarmInterval;
+  return 0;
+}
+
+uint64
+sys_sigreturn(void)
+{
+  myproc()->trapframe->ra = myproc()->ra;
+  myproc()->trapframe->sp = myproc()->sp;
+  myproc()->trapframe->a0 = myproc()->a0;
+  myproc()->trapframe->a1 = myproc()->a1;
+  myproc()->trapframe->s11 = myproc()->s11;
+  myproc()->trapframe->s0 = myproc()->s0;
+  myproc()->trapframe->epc = myproc()->epc;
+  return myproc()->a0;
 }

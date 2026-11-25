@@ -81,8 +81,22 @@ usertrap(void)
     kexit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2)
+  if(which_dev == 2){
+    if (p->alarmInterval && (ticks - p->ticksNext >= 0)){
+      if (p->trapframe-> epc >= 0xbc){ //address below 0xbc is where handler code is present
+        p->epc = p->trapframe->epc;
+        p->sp = p->trapframe->sp;
+        p->ra = p->trapframe->ra;
+        p->a0 = p->trapframe->a0;
+        p->a1 = p->trapframe->a1;
+        p->s0 = p->trapframe->s0;
+        p->s11 = p->trapframe->s11;
+        p->trapframe->epc = (uint64)p->handler;
+      }
+      p->ticksNext = ticks + p->alarmInterval;
+    }
     yield();
+  }
 
   prepare_return();
 

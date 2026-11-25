@@ -1,0 +1,57 @@
+1) Which registers contain arguments to functions? For example, which register holds 13 in main's call to printf?
+   printf("%d %d\n", f(8) + 1, 13);
+   a0 = address of format string
+   a1 = f(8) + 1 = 12
+   a2 = 13
+
+2) Where is the call to function f in the assembly code for main? Where is the call to g? 
+   man has call to evaluate.
+   the call for f has been inlined as it can be evalued at compiled time. -> f already has code x+3
+   the call for g has inlined
+
+3) At what address is the function printf located?
+0x74e
+
+4)What value is in the register ra just after the jalr to printf in main?
+0x3c
+
+5)
+	unsigned int i = 0x00646c72;
+	printf("H%x Wo%s", 57616, (char *) &i);
+The output depends on that fact that the RISC-V is little-endian. 
+If the RISC-V were instead big-endian what would you set i to in order to yield the same output? 
+unsigned int i = 0x726c6400;
+
+Would you need to change 57616 to a different value? 
+No, since 57616 is stored in register, also the value is passed to print,
+in case of %s address is passed hence endianness comes into the picture.
+
+little: He110 World
+Big: He110 Wo(since printf, prints only till the null byte)
+
+57616 in hex => 0xE110
+
+
+H - 0x48 - present in format string
+e - 0x65 so order doesn't matter
+1 - 0x31 ''
+1 - 0x31 ''
+0 - 0x30 ''
+W - 0x57 - present in format string
+o - 0x6f - present in format string
+r - 0x72 - i from reverse, risc-v is little endian least significant byte is stored at smallest addres.
+l - 0x6c - (i-1) from reverse
+d - 0x64 - (i-1) from reverse
+
+5)In the following code, what is going to be printed after 'y='? (note: the answer is not a specific value.) Why does this happen?
+    printf("x=%d y=%d", 3);
+
+some junk value.
+printf uses va_list, it tries to interpret the 4 bytes from next address.
+arguments are passed from a0, a1, a2.. registers in risc-v.
+In printf the compiler built_in first spills all values in arugment registers on stack.
+From the start pointer address it start.
+Hence in our case we get y as junk, whatever was in a2 register is spilled on stack, which is read, set to y.
+
+
+

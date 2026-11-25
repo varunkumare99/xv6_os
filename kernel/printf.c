@@ -149,3 +149,17 @@ printfinit(void)
 {
   initlock(&pr.lock, "pr");
 }
+
+void
+backtrace(void)
+{
+  uint64 fp = r_fp();
+  uint64 stack_start = PGROUNDDOWN(fp);
+  uint64 ra;
+
+  do {
+    ra = *(uint64 *)(fp - 8);
+    printf("%p\n", (void *)ra);
+    fp = *(uint64 *)(fp - 16); //jump to previous fp
+  }while (stack_start <= fp);
+}
