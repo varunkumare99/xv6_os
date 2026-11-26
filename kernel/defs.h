@@ -58,6 +58,7 @@ void            ireclaim(int);
 // kalloc.c
 void*           kalloc(void);
 void            kfree(void *);
+void            incPageRefCount(void *);
 void            kinit(void);
 
 // log.c

@@ -17,6 +17,8 @@ extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
 
+extern int physicalPageStatus[]; // kalloc.c track reference count of pa
+
 // Make a direct-map page table for the kernel.
 pagetable_t
 kvmmake(void)
@@ -162,7 +164,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   for(;;){
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
-    if(*pte & PTE_V)
+    if((*pte & PTE_V) && !(*pte & PTE_RSW))
       panic("mappages: remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
     if(a == last)
@@ -299,7 +301,6 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
@@ -308,13 +309,23 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
       continue;   // physical page hasn't been allocated
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem);
+
+    if (flags & (PTE_W)) {
+      //cow page, so tag it for child and parent
+      //and clear the writ bit
+      *pte |= PTE_RSW;
+      *pte &= ~PTE_W;
+      flags |= PTE_RSW;
+      flags &= ~PTE_W;
+    }
+
+    //child will point to parent's physical pages, clear the write flag
+    //no new allocation of physical memory for child
+    if(mappages(new, i, PGSIZE, pa, flags) != 0){
       goto err;
     }
+    //increment ref count for pa sa same if accessed by child
+    incPageRefCount((void*)pa);
   }
   return 0;
 
@@ -354,6 +365,25 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if(pa0 == 0) {
       if((pa0 = vmfault(pagetable, va0, 0)) == 0) {
         return -1;
+      }
+    }
+    else {
+      //in case of cow page, create a new physical page
+      pte_t *pte = walk(pagetable, va0, 0);
+      int flags = PTE_FLAGS(*pte);
+      if (flags & PTE_RSW) { //cow page, and trying to write(store)
+        uint64 oldPage = pa0;
+        pa0 = (uint64) kalloc();
+        if(pa0 == 0) {
+          kfree((void*)oldPage);  //free the old page
+          return -1;
+        }
+        memmove((void *) pa0, (void *)oldPage, PGSIZE);
+        kfree((void*)oldPage);  //free the old page
+        if (mappages(pagetable, va0, PGSIZE, pa0, PTE_W|PTE_U|PTE_R) != 0) {
+          kfree((void *)pa0);
+          return -1;
+        }
       }
     }
 
@@ -459,8 +489,29 @@ vmfault(pagetable_t pagetable, uint64 va, int read)
     return 0;
   va = PGROUNDDOWN(va);
   if(ismapped(pagetable, va)) {
+    //cow pages will already be mapped but read-only
+    pte_t *pte = walk(pagetable, va, 0);
+    int flags = PTE_FLAGS(*pte);
+    if (!read && (flags & PTE_RSW)) { //cow page, and trying to write(store)
+      uint64 pa0 = walkaddr(pagetable, va);
+      mem = (uint64) kalloc();
+      if(mem == 0) {
+        kfree((void*)pa0); //free the old page
+        return 0;
+      }
+      memmove((void *) mem, (void *)pa0, PGSIZE);
+      kfree((void*)pa0); //free the old page
+      if (mappages(p->pagetable, va, PGSIZE, mem, PTE_W|PTE_U|PTE_R) != 0) {
+        kfree((void *)mem);
+        return 0;
+      }
+      return mem;
+    }
+    //trying to read from a cow page
+    //since it is already shared hence allowed no page fault should occur
     return 0;
   }
+
   mem = (uint64) kalloc();
   if(mem == 0)
     return 0;
